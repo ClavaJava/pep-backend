@@ -2,6 +2,8 @@ package br.com.hospital.pep.entity;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;
+import br.com.hospital.pep.enums.Setor;
+import br.com.hospital.pep.enums.StatusInternacao;
 
 @Entity
 public class Internacao {
@@ -12,12 +14,16 @@ public class Internacao {
 
     private LocalDate dataEntrada;
     private LocalDate dataAlta;
-    private String setor;
-    private String status;
+
+    @Enumerated(EnumType.STRING)
+    private Setor setor;
+
+    @Enumerated(EnumType.STRING)
+    private StatusInternacao status;
 
     @ManyToOne
-    @JoinColumn(name = "paciente_id")
-    private Paciente paciente;
+    @JoinColumn(name = "leito_id")
+    private Leito leito;
 
     public Internacao() {}
 
@@ -41,19 +47,19 @@ public class Internacao {
         this.dataAlta = dataAlta;
     }
 
-    public String getSetor() {
+    public Setor getSetor() {
         return setor;
     }
 
-    public void setSetor(String setor) {
+    public void setSetor(Setor setor) {
         this.setor = setor;
     }
 
-    public String getStatus() {
+    public StatusInternacao getStatus() {
         return status;
     }
 
-    public void setStatus(String status) {
+    public void setStatus(StatusInternacao status) {
         this.status = status;
     }
 

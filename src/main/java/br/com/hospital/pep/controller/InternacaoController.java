@@ -1,63 +1,34 @@
 package br.com.hospital.pep.controller;
 
-import br.com.hospital.pep.entity.Internacao;
-import br.com.hospital.pep.entity.Paciente;
-import br.com.hospital.pep.repository.InternacaoRepository;
-import br.com.hospital.pep.repository.PacienteRepository;
+import br.com.hospital.pep.dto.InternacaoRequestDTO;
+import br.com.hospital.pep.dto.InternacaoResponseDTO;
+import br.com.hospital.pep.service.InternacaoService;
 
-import org.springframework.http.HttpStatus;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
 
-import java.time.LocalDate;
+import java.util.List;
 
 @RestController
 @RequestMapping("/internacoes")
 public class InternacaoController {
 
-    private final InternacaoRepository internacaoRepository;
-    private final PacienteRepository pacienteRepository;
+    private final InternacaoService internacaoService;
 
-    public InternacaoController(
-            InternacaoRepository internacaoRepository,
-            PacienteRepository pacienteRepository
-    ) {
-        this.internacaoRepository = internacaoRepository;
-        this.pacienteRepository = pacienteRepository;
+    public InternacaoController(InternacaoService internacaoService) {
+        this.internacaoService = internacaoService;
     }
 
-    @PostMapping
-    public Internacao internar(@RequestBody Internacao internacao) {
+    @PostMapping("/{pacienteId}")
+    public InternacaoResponseDTO internar(
+            @PathVariable Long pacienteId,
+            @RequestBody @Valid InternacaoRequestDTO dto) {
 
-        if (internacao.getPaciente() == null || internacao.getPaciente().getId() == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Paciente é obrigatório"
-            );
-        }
+        return internacaoService.internar(pacienteId, dto);
+    }
 
-        Long pacienteId = internacao.getPaciente().getId();
-
-        Paciente paciente = pacienteRepository.findById(pacienteId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Paciente não encontrado"
-                ));
-
-        var internacaoAtiva =
-                internacaoRepository.findByPacienteIdAndDataAltaIsNull(pacienteId);
-
-        if (internacaoAtiva.isPresent()) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Paciente já possui internação ativa"
-            );
-        }
-
-        internacao.setPaciente(paciente);
-        internacao.setStatus("INTERNADO");
-        internacao.setDataEntrada(LocalDate.now());
-
-        return internacaoRepository.save(internacao);
+    @GetMapping("/ativas")
+    public List<InternacaoResponseDTO> listarInternados() {
+        return internacaoService.listarInternados();
     }
 }

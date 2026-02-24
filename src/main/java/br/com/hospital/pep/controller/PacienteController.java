@@ -1,55 +1,46 @@
 package br.com.hospital.pep.controller;
 
-import br.com.hospital.pep.entity.Paciente;
-import br.com.hospital.pep.repository.PacienteRepository;
-import org.springframework.web.bind.annotation.*;
-import java.util.List;
+import br.com.hospital.pep.dto.PacienteRequestDTO;
+import br.com.hospital.pep.dto.PacienteResponseDTO;
+import br.com.hospital.pep.service.PacienteService;
 
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/pacientes")
 public class PacienteController {
 
-    private final PacienteRepository repository;
+    private final PacienteService pacienteService;
 
-    public PacienteController(PacienteRepository repository) {
-        this.repository = repository;
+    public PacienteController(PacienteService pacienteService) {
+        this.pacienteService = pacienteService;
     }
 
     @PostMapping
-    public Paciente cadastrar(@RequestBody Paciente paciente) {
-        return repository.save(paciente);
-    }
-
-    @GetMapping
-    public String teste() {
-        return "API Pacientes funcionando 🚑";
+    public PacienteResponseDTO cadastrar(@RequestBody PacienteRequestDTO dto) {
+        return pacienteService.cadastrar(dto);
     }
 
     @GetMapping("/{id}")
-    public Paciente buscarPorId(@PathVariable Long id) {
-        return repository.findById(id).orElse(null);
+    public PacienteResponseDTO buscarPorId(@PathVariable Long id) {
+        return pacienteService.buscarPorId(id);
     }
 
-    @GetMapping("/todos")
-    public List<Paciente> listarTodos() {
-        return repository.findAll();
+    @GetMapping
+    public List<PacienteResponseDTO> listarTodos() {
+        return pacienteService.listarTodos();
     }
+
     @PutMapping("/{id}")
-    public Paciente atualizar(@PathVariable Long id, @RequestBody Paciente pacienteAtualizado) {
-        return repository.findById(id)
-                .map(paciente -> {
-                    paciente.setNome(pacienteAtualizado.getNome());
-                    paciente.setCpf(pacienteAtualizado.getCpf());
-                    paciente.setSexo(pacienteAtualizado.getSexo());
-                    paciente.setDataNascimento(pacienteAtualizado.getDataNascimento());
-                    return repository.save(paciente);
-                })
-                .orElse(null);
+    public PacienteResponseDTO atualizar(@PathVariable Long id,
+                                         @RequestBody PacienteRequestDTO dto) {
+        return pacienteService.atualizar(id, dto);
     }
+
     @DeleteMapping("/{id}")
     public void deletar(@PathVariable Long id) {
-        repository.deleteById(id);
+        pacienteService.deletar(id);
     }
-
 }
