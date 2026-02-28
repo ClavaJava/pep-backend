@@ -3,7 +3,11 @@ package br.com.hospital.pep.entity;
 import br.com.hospital.pep.enums.Setor;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import lombok.Getter;
+import lombok.Setter;
 
+@Getter
+@Setter
 @Entity
 public class MovimentacaoInternacao {
 
@@ -11,16 +15,15 @@ public class MovimentacaoInternacao {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Enumerated(EnumType.STRING)
-    private Setor setor;
-
-    private LocalDateTime dataHora;
-
     @ManyToOne
     @JoinColumn(name = "internacao_id")
     private Internacao internacao;
 
-    public MovimentacaoInternacao() {}
+    @Enumerated(EnumType.STRING)
+    private Setor setorOrigem;
 
-    // getters e setters
+    @Enumerated(EnumType.STRING)
+    private Setor setorDestino;
+
+    private LocalDateTime dataHora;
 }

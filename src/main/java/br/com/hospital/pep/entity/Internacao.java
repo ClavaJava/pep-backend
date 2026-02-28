@@ -1,9 +1,9 @@
 package br.com.hospital.pep.entity;
 
-import jakarta.persistence.*;
-import java.time.LocalDate;
-import br.com.hospital.pep.enums.Setor;
 import br.com.hospital.pep.enums.StatusInternacao;
+import jakarta.persistence.*;
+
+import java.time.LocalDate;
 
 @Entity
 public class Internacao {
@@ -16,13 +16,14 @@ public class Internacao {
     private LocalDate dataAlta;
 
     @Enumerated(EnumType.STRING)
-    private Setor setor;
-
-    @Enumerated(EnumType.STRING)
     private StatusInternacao status;
 
     @ManyToOne
-    @JoinColumn(name = "leito_id")
+    @JoinColumn(name = "paciente_id", nullable = false)
+    private Paciente paciente;
+
+    @ManyToOne
+    @JoinColumn(name = "leito_id", nullable = false)
     private Leito leito;
 
     public Internacao() {}
@@ -47,14 +48,6 @@ public class Internacao {
         this.dataAlta = dataAlta;
     }
 
-    public Setor getSetor() {
-        return setor;
-    }
-
-    public void setSetor(Setor setor) {
-        this.setor = setor;
-    }
-
     public StatusInternacao getStatus() {
         return status;
     }
@@ -69,5 +62,13 @@ public class Internacao {
 
     public void setPaciente(Paciente paciente) {
         this.paciente = paciente;
+    }
+
+    public Leito getLeito() {
+        return leito;
+    }
+
+    public void setLeito(Leito leito) {
+        this.leito = leito;
     }
 }
