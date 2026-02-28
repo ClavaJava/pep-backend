@@ -2,6 +2,7 @@ package br.com.hospital.pep.service;
 
 import br.com.hospital.pep.dto.InternacaoRequestDTO;
 import br.com.hospital.pep.dto.InternacaoResponseDTO;
+import br.com.hospital.pep.dto.MovimentacaoResponseDTO;
 import br.com.hospital.pep.entity.*;
 import br.com.hospital.pep.enums.Setor;
 import br.com.hospital.pep.enums.StatusInternacao;
@@ -15,7 +16,6 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 public class InternacaoService {
@@ -37,7 +37,7 @@ public class InternacaoService {
     }
 
     // =========================
-    // INTERNAR PACIENTE
+    // INTERNAR PACIENTE EM LEITO ESPECÍFICO
     // =========================
     @Transactional
     public InternacaoResponseDTO internar(Long pacienteId,
@@ -59,18 +59,33 @@ public class InternacaoService {
             );
         }
 
-        Leito leitoDisponivel = leitoRepository
-                .findFirstBySetorAndOcupadoFalse(dto.getSetor())
+        if (dto.getNumeroLeito() == null || dto.getNumeroLeito() <= 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Número do leito inválido"
+            );
+        }
+
+        Leito leito = leitoRepository
+                .findBySetorAndNumero(dto.getSetor(), dto.getNumeroLeito())
                 .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.CONFLICT,
-                        "Não há leitos disponíveis neste setor"
+                        HttpStatus.NOT_FOUND,
+                        "Leito não encontrado neste setor"
                 ));
 
-        leitoDisponivel.setOcupado(true);
+        if (leito.isOcupado()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Leito já está ocupado"
+            );
+        }
+
+        leito.setOcupado(true);
+        leitoRepository.save(leito);
 
         Internacao internacao = new Internacao();
         internacao.setPaciente(paciente);
-        internacao.setLeito(leitoDisponivel);
+        internacao.setLeito(leito);
         internacao.setStatus(StatusInternacao.INTERNADO);
         internacao.setDataEntrada(LocalDate.now());
 
@@ -80,7 +95,7 @@ public class InternacaoService {
     }
 
     // =========================
-    // TRANSFERIR
+    // TRANSFERIR (continua automático)
     // =========================
     @Transactional
     public void transferir(Long internacaoId, Setor novoSetor) {
@@ -108,10 +123,9 @@ public class InternacaoService {
             );
         }
 
-        // liberar leito atual
         leitoAtual.setOcupado(false);
+        leitoRepository.save(leitoAtual);
 
-        // buscar novo leito
         Leito novoLeito = leitoRepository
                 .findFirstBySetorAndOcupadoFalse(novoSetor)
                 .orElseThrow(() -> new ResponseStatusException(
@@ -120,10 +134,10 @@ public class InternacaoService {
                 ));
 
         novoLeito.setOcupado(true);
+        leitoRepository.save(novoLeito);
 
         internacao.setLeito(novoLeito);
 
-        // registrar movimentação
         MovimentacaoInternacao movimentacao = new MovimentacaoInternacao();
         movimentacao.setInternacao(internacao);
         movimentacao.setSetorOrigem(setorOrigem);
@@ -132,7 +146,27 @@ public class InternacaoService {
 
         movimentacaoRepository.save(movimentacao);
     }
+    private void validarCapacidadeSetor(Setor setor) {
 
+        long totalLeitos = leitoRepository.countBySetor(setor);
+
+        int limite;
+
+        if (setor == Setor.UTI) {
+            limite = 10;
+        } else if (setor == Setor.ENFERMARIA) {
+            limite = 20;
+        } else {
+            return; // outros setores sem limite fixo
+        }
+
+        if (totalLeitos >= limite) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Limite de leitos atingido para o setor " + setor
+            );
+        }
+    }
     // =========================
     // DAR ALTA
     // =========================
@@ -145,7 +179,7 @@ public class InternacaoService {
                         "Internação não encontrada"
                 ));
 
-        if (internacao.getDataAlta() != null) {
+        if (internacao.getStatus() != StatusInternacao.INTERNADO) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "Internação já possui alta"
@@ -153,6 +187,7 @@ public class InternacaoService {
         }
 
         internacao.getLeito().setOcupado(false);
+        leitoRepository.save(internacao.getLeito());
         internacao.setDataAlta(LocalDate.now());
         internacao.setStatus(StatusInternacao.ALTA);
 
@@ -170,7 +205,29 @@ public class InternacaoService {
                 .findByStatus(StatusInternacao.INTERNADO)
                 .stream()
                 .map(this::converterParaDTO)
-                .collect(Collectors.toList());
+                .toList();
+    }
+
+    // =========================
+    // LISTAR MOVIMENTAÇÕES
+    // =========================
+    public List<MovimentacaoResponseDTO> listarMovimentacoes(Long internacaoId) {
+
+        Internacao internacao = internacaoRepository.findById(internacaoId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Internação não encontrada"
+                ));
+
+        return movimentacaoRepository
+                .findByInternacao_IdOrderByDataHoraAsc(internacao.getId())
+                .stream()
+                .map(m -> new MovimentacaoResponseDTO(
+                        m.getSetorOrigem(),
+                        m.getSetorDestino(),
+                        m.getDataHora()
+                ))
+                .toList();
     }
 
     // =========================

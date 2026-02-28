@@ -13,15 +13,19 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@Transactional
 class InternacaoControllerTest {
 
     @Autowired
@@ -39,32 +43,144 @@ class InternacaoControllerTest {
     @Autowired
     private MovimentacaoInternacaoRepository movimentacaoRepository;
 
+    // =========================
+    // MÉTODOS AUXILIARES
+    // =========================
+
+    private Paciente criarPaciente(String cpf) {
+        Paciente p = new Paciente();
+        p.setNome("Paciente Teste");
+        p.setCpf(cpf);
+        p.setDataNascimento(LocalDate.of(1990, 1, 1));
+        p.setSexo("MASCULINO");
+        return pacienteRepository.save(p);
+    }
+
+    // 🔥 MÉTODO CORRIGIDO (EVITA DUPLICAÇÃO DE LEITO)
+    private Leito criarLeito(Setor setor, int numero, boolean ocupado) {
+
+        return leitoRepository
+                .findBySetorAndNumero(setor, numero)
+                .map(leitoExistente -> {
+                    leitoExistente.setOcupado(ocupado);
+                    return leitoRepository.save(leitoExistente);
+                })
+                .orElseGet(() -> {
+                    Leito l = new Leito();
+                    l.setSetor(setor);
+                    l.setNumero(numero);
+                    l.setOcupado(ocupado);
+                    return leitoRepository.save(l);
+                });
+    }
+
+    // =========================
+    // INTERNAR COM SUCESSO
+    // =========================
+
     @Test
-    void deveTransferirPacienteViaEndpoint() throws Exception {
+    void deveInternarComSucesso() throws Exception {
 
-        // 1) Paciente (ajuste os campos conforme sua Entity Paciente)
-        Paciente paciente = new Paciente();
-        paciente.setNome("João Teste");
-        paciente.setCpf("99999999901"); // precisa ser único e não nulo
-        paciente.setDataNascimento(LocalDate.of(1995, 5, 10));
-        paciente.setSexo("MASCULINO"); // se seu campo for enum, ajuste aqui
-        paciente = pacienteRepository.save(paciente);
+        Paciente paciente = criarPaciente("11111111101");
+        criarLeito(Setor.UTI, 1, false);
 
-        // 2) Leito atual na UTI (ocupado)
-        Leito leitoUTI = new Leito();
-        leitoUTI.setNumero(1);
-        leitoUTI.setSetor(Setor.UTI);
-        leitoUTI.setOcupado(true);
-        leitoUTI = leitoRepository.save(leitoUTI);
+        mockMvc.perform(post("/internacoes/" + paciente.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                        {
+                          "setor": "UTI",
+                          "numeroLeito": 1
+                        }
+                        """))
+                .andExpect(status().isOk());
 
-        // 3) Leito disponível na ENFERMARIA
-        Leito leitoEnf = new Leito();
-        leitoEnf.setNumero(1);
-        leitoEnf.setSetor(Setor.ENFERMARIA);
-        leitoEnf.setOcupado(false);
-        leitoRepository.save(leitoEnf);
+        assertEquals(1, internacaoRepository.count());
 
-        // 4) Internação ativa apontando pro leito UTI
+        Internacao internacao = internacaoRepository.findAll().get(0);
+        assertEquals(StatusInternacao.INTERNADO, internacao.getStatus());
+    }
+
+    // =========================
+    // ERRO LEITO OCUPADO
+    // =========================
+
+    @Test
+    void naoDeveInternarEmLeitoOcupado() throws Exception {
+
+        Paciente paciente = criarPaciente("11111111102");
+        criarLeito(Setor.UTI, 1, true);
+
+        mockMvc.perform(post("/internacoes/" + paciente.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                        {
+                          "setor": "UTI",
+                          "numeroLeito": 1
+                        }
+                        """))
+                .andExpect(status().isConflict());
+    }
+
+    // =========================
+    // ERRO PACIENTE JA INTERNADO
+    // =========================
+
+    @Test
+    void naoDeveInternarPacienteJaInternado() throws Exception {
+
+        Paciente paciente = criarPaciente("11111111103");
+        Leito leito = criarLeito(Setor.UTI, 1, false);
+
+        Internacao internacao = new Internacao();
+        internacao.setPaciente(paciente);
+        internacao.setLeito(leito);
+        internacao.setStatus(StatusInternacao.INTERNADO);
+        internacao.setDataEntrada(LocalDate.now());
+        internacaoRepository.save(internacao);
+
+        mockMvc.perform(post("/internacoes/" + paciente.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                        {
+                          "setor": "UTI",
+                          "numeroLeito": 1
+                        }
+                        """))
+                .andExpect(status().isConflict());
+    }
+
+    // =========================
+    // ERRO LEITO INEXISTENTE
+    // =========================
+
+    @Test
+    void naoDeveInternarEmLeitoInexistente() throws Exception {
+
+        Paciente paciente = criarPaciente("11111111104");
+
+        mockMvc.perform(post("/internacoes/" + paciente.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                        {
+                          "setor": "UTI",
+                          "numeroLeito": 99
+                        }
+                        """))
+                .andExpect(status().isNotFound());
+    }
+
+    // =========================
+    // TRANSFERIR
+    // =========================
+
+    @Test
+    void deveTransferirPaciente() throws Exception {
+
+        Paciente paciente = criarPaciente("11111111105");
+
+        Leito leitoUTI = criarLeito(Setor.UTI, 1, true);
+        criarLeito(Setor.ENFERMARIA, 1, false);
+
         Internacao internacao = new Internacao();
         internacao.setPaciente(paciente);
         internacao.setLeito(leitoUTI);
@@ -72,15 +188,63 @@ class InternacaoControllerTest {
         internacao.setDataEntrada(LocalDate.now());
         internacao = internacaoRepository.save(internacao);
 
-        // 5) Chamar endpoint de transferir
-        mockMvc.perform(
-                put("/internacoes/" + internacao.getId() + "/transferir")
-                        .param("novoSetor", "ENFERMARIA")
-        ).andExpect(status().isNoContent()); // 204
+        mockMvc.perform(put("/internacoes/" + internacao.getId() + "/transferir")
+                        .param("novoSetor", "ENFERMARIA"))
+                .andExpect(status().isNoContent());
 
-        // 6) Verifica que gerou histórico
-        // (se quiser garantir mais, dá pra checar tamanho e valores)
-        var historico = movimentacaoRepository.findByInternacaoId(internacao.getId());
-        org.junit.jupiter.api.Assertions.assertFalse(historico.isEmpty());
+        var historico = movimentacaoRepository
+                .findByInternacao_IdOrderByDataHoraAsc(internacao.getId());
+
+        assertEquals(1, historico.size());
+    }
+
+    // =========================
+    // NAO TRANSFERIR APOS ALTA
+    // =========================
+
+    @Test
+    void naoDeveTransferirAposAlta() throws Exception {
+
+        Paciente paciente = criarPaciente("11111111106");
+        Leito leito = criarLeito(Setor.UTI, 1, true);
+
+        Internacao internacao = new Internacao();
+        internacao.setPaciente(paciente);
+        internacao.setLeito(leito);
+        internacao.setStatus(StatusInternacao.ALTA);
+        internacao.setDataEntrada(LocalDate.now());
+        internacao.setDataAlta(LocalDate.now());
+        internacao = internacaoRepository.save(internacao);
+
+        mockMvc.perform(put("/internacoes/" + internacao.getId() + "/transferir")
+                        .param("novoSetor", "ENFERMARIA"))
+                .andExpect(status().isConflict());
+    }
+
+    // =========================
+    // DAR ALTA
+    // =========================
+
+    @Test
+    void deveDarAlta() throws Exception {
+
+        Paciente paciente = criarPaciente("11111111107");
+        Leito leito = criarLeito(Setor.UTI, 1, true);
+
+        Internacao internacao = new Internacao();
+        internacao.setPaciente(paciente);
+        internacao.setLeito(leito);
+        internacao.setStatus(StatusInternacao.INTERNADO);
+        internacao.setDataEntrada(LocalDate.now());
+        internacao = internacaoRepository.save(internacao);
+
+        mockMvc.perform(put("/internacoes/" + internacao.getId() + "/alta"))
+                .andExpect(status().isOk());
+
+        Internacao atualizada = internacaoRepository
+                .findById(internacao.getId())
+                .orElseThrow();
+
+        assertEquals(StatusInternacao.ALTA, atualizada.getStatus());
     }
 }

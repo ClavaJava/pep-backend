@@ -3,6 +3,11 @@ package br.com.hospital.pep.entity;
 import br.com.hospital.pep.enums.Setor;
 import jakarta.persistence.*;
 
+@Table(
+        uniqueConstraints = {
+                @UniqueConstraint(columnNames = {"setor", "numero"})
+        }
+)
 @Entity
 public class Leito {
 

@@ -7,6 +7,7 @@ import java.util.List;
 public interface MovimentacaoInternacaoRepository
         extends JpaRepository<MovimentacaoInternacao, Long> {
 
-    List<MovimentacaoInternacao> findByInternacaoId(Long internacaoId);
+    List<MovimentacaoInternacao>
+    findByInternacao_IdOrderByDataHoraAsc(Long internacaoId);
 
 }

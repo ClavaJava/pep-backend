@@ -2,6 +2,7 @@ package br.com.hospital.pep.controller;
 
 import br.com.hospital.pep.dto.InternacaoRequestDTO;
 import br.com.hospital.pep.dto.InternacaoResponseDTO;
+import br.com.hospital.pep.dto.MovimentacaoResponseDTO;
 import br.com.hospital.pep.enums.Setor;
 import br.com.hospital.pep.service.InternacaoService;
 
@@ -10,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+
 
 @RestController
 @RequestMapping("/internacoes")
@@ -41,6 +43,12 @@ public class InternacaoController {
 
         internacaoService.transferir(id, novoSetor);
         return ResponseEntity.noContent().build();
+    }
+    @GetMapping("/{id}/movimentacoes")
+    public List<MovimentacaoResponseDTO> listarMovimentacoes(
+            @PathVariable Long id) {
+
+        return internacaoService.listarMovimentacoes(id);
     }
 
     @PutMapping("/{id}/alta")

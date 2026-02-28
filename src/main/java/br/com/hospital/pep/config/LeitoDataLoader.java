@@ -5,8 +5,10 @@ import br.com.hospital.pep.enums.Setor;
 import br.com.hospital.pep.repository.LeitoRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
+import org.springframework.context.annotation.Profile;
 
 @Component
+@Profile("!test") // NÃO roda quando profile for test
 public class LeitoDataLoader implements CommandLineRunner {
 
     private final LeitoRepository leitoRepository;
