@@ -7,11 +7,13 @@ import br.com.hospital.pep.enums.Setor;
 import br.com.hospital.pep.service.InternacaoService;
 
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-
 
 @RestController
 @RequestMapping("/internacoes")
@@ -31,9 +33,15 @@ public class InternacaoController {
         return internacaoService.internar(pacienteId, dto);
     }
 
+    // Exemplo de uso:
+    // GET /internacoes/ativas             → página 0, 10 itens (default)
+    // GET /internacoes/ativas?page=1&size=20
+    // GET /internacoes/ativas?page=0&size=5&sort=dataEntrada,desc
     @GetMapping("/ativas")
-    public List<InternacaoResponseDTO> listarInternados() {
-        return internacaoService.listarInternados();
+    public Page<InternacaoResponseDTO> listarInternados(
+            @PageableDefault(size = 10, sort = "dataEntrada") Pageable pageable) {
+
+        return internacaoService.listarInternados(pageable);
     }
 
     @PutMapping("/{id}/transferir")
@@ -43,6 +51,11 @@ public class InternacaoController {
 
         internacaoService.transferir(id, novoSetor);
         return ResponseEntity.noContent().build();
+    }
+    // Histórico de internações por paciente (usado na tela Internados e Relatórios)
+    @GetMapping("/paciente/{pacienteId}")
+    public List<InternacaoResponseDTO> historicoPorPaciente(@PathVariable Long pacienteId) {
+        return internacaoService.historicoPorPaciente(pacienteId);
     }
     @GetMapping("/{id}/movimentacoes")
     public List<MovimentacaoResponseDTO> listarMovimentacoes(

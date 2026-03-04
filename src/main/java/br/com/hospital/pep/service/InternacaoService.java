@@ -9,6 +9,8 @@ import br.com.hospital.pep.enums.StatusInternacao;
 import br.com.hospital.pep.repository.*;
 
 import jakarta.transaction.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -40,43 +42,35 @@ public class InternacaoService {
     // INTERNAR PACIENTE EM LEITO ESPECÍFICO
     // =========================
     @Transactional
-    public InternacaoResponseDTO internar(Long pacienteId,
-                                          InternacaoRequestDTO dto) {
+    public InternacaoResponseDTO internar(Long pacienteId, InternacaoRequestDTO dto) {
 
         Paciente paciente = pacienteRepository.findById(pacienteId)
                 .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Paciente não encontrado"
+                        HttpStatus.NOT_FOUND, "Paciente não encontrado"
                 ));
 
-        if (internacaoRepository
-                .findByPacienteIdAndDataAltaIsNull(pacienteId)
-                .isPresent()) {
-
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Paciente já possui internação ativa"
-            );
-        }
+        // Usa status ao invés de dataAlta nula — mais seguro
+        internacaoRepository
+                .findByPacienteIdAndStatus(pacienteId, StatusInternacao.INTERNADO)
+                .ifPresent(i -> { throw new ResponseStatusException(
+                        HttpStatus.CONFLICT, "Paciente já possui internação ativa"
+                ); });
 
         if (dto.getNumeroLeito() == null || dto.getNumeroLeito() <= 0) {
             throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Número do leito inválido"
+                    HttpStatus.BAD_REQUEST, "Número do leito inválido"
             );
         }
 
         Leito leito = leitoRepository
                 .findBySetorAndNumero(dto.getSetor(), dto.getNumeroLeito())
                 .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Leito não encontrado neste setor"
+                        HttpStatus.NOT_FOUND, "Leito não encontrado neste setor"
                 ));
 
         if (leito.isOcupado()) {
             throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Leito já está ocupado"
+                    HttpStatus.CONFLICT, "Leito já está ocupado"
             );
         }
 
@@ -89,27 +83,23 @@ public class InternacaoService {
         internacao.setStatus(StatusInternacao.INTERNADO);
         internacao.setDataEntrada(LocalDate.now());
 
-        Internacao salva = internacaoRepository.save(internacao);
-
-        return converterParaDTO(salva);
+        return converterParaDTO(internacaoRepository.save(internacao));
     }
 
     // =========================
-    // TRANSFERIR (continua automático)
+    // TRANSFERIR
     // =========================
     @Transactional
     public void transferir(Long internacaoId, Setor novoSetor) {
 
         Internacao internacao = internacaoRepository.findById(internacaoId)
                 .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Internação não encontrada"
+                        HttpStatus.NOT_FOUND, "Internação não encontrada"
                 ));
 
         if (internacao.getStatus() != StatusInternacao.INTERNADO) {
             throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Só é possível transferir internações ativas"
+                    HttpStatus.CONFLICT, "Só é possível transferir internações ativas"
             );
         }
 
@@ -118,19 +108,18 @@ public class InternacaoService {
 
         if (setorOrigem == novoSetor) {
             throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Paciente já está neste setor"
+                    HttpStatus.CONFLICT, "Paciente já está neste setor"
             );
         }
 
         leitoAtual.setOcupado(false);
         leitoRepository.save(leitoAtual);
 
+        // Usa ordenação por número — determinístico e auditável
         Leito novoLeito = leitoRepository
-                .findFirstBySetorAndOcupadoFalse(novoSetor)
+                .findFirstBySetorAndOcupadoFalseOrderByNumeroAsc(novoSetor)
                 .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.CONFLICT,
-                        "Não há leitos disponíveis no setor destino"
+                        HttpStatus.CONFLICT, "Não há leitos disponíveis no setor destino"
                 ));
 
         novoLeito.setOcupado(true);
@@ -146,27 +135,7 @@ public class InternacaoService {
 
         movimentacaoRepository.save(movimentacao);
     }
-    private void validarCapacidadeSetor(Setor setor) {
 
-        long totalLeitos = leitoRepository.countBySetor(setor);
-
-        int limite;
-
-        if (setor == Setor.UTI) {
-            limite = 10;
-        } else if (setor == Setor.ENFERMARIA) {
-            limite = 20;
-        } else {
-            return; // outros setores sem limite fixo
-        }
-
-        if (totalLeitos >= limite) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Limite de leitos atingido para o setor " + setor
-            );
-        }
-    }
     // =========================
     // DAR ALTA
     // =========================
@@ -175,14 +144,12 @@ public class InternacaoService {
 
         Internacao internacao = internacaoRepository.findById(internacaoId)
                 .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Internação não encontrada"
+                        HttpStatus.NOT_FOUND, "Internação não encontrada"
                 ));
 
         if (internacao.getStatus() != StatusInternacao.INTERNADO) {
             throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Internação já possui alta"
+                    HttpStatus.CONFLICT, "Internação já possui alta"
             );
         }
 
@@ -191,18 +158,32 @@ public class InternacaoService {
         internacao.setDataAlta(LocalDate.now());
         internacao.setStatus(StatusInternacao.ALTA);
 
-        Internacao salva = internacaoRepository.save(internacao);
-
-        return converterParaDTO(salva);
+        return converterParaDTO(internacaoRepository.save(internacao));
     }
 
     // =========================
-    // LISTAR INTERNADOS
+    // LISTAR INTERNADOS (paginado)
     // =========================
-    public List<InternacaoResponseDTO> listarInternados() {
+    public Page<InternacaoResponseDTO> listarInternados(Pageable pageable) {
 
         return internacaoRepository
-                .findByStatus(StatusInternacao.INTERNADO)
+                .findByStatus(StatusInternacao.INTERNADO, pageable)
+                .map(this::converterParaDTO);
+    }
+
+    // =========================
+    // HISTÓRICO DO PACIENTE
+    // =========================
+    public List<InternacaoResponseDTO> historicoPorPaciente(Long pacienteId) {
+
+        if (!pacienteRepository.existsById(pacienteId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND, "Paciente não encontrado"
+            );
+        }
+
+        return internacaoRepository
+                .findByPacienteId(pacienteId)
                 .stream()
                 .map(this::converterParaDTO)
                 .toList();
@@ -213,14 +194,13 @@ public class InternacaoService {
     // =========================
     public List<MovimentacaoResponseDTO> listarMovimentacoes(Long internacaoId) {
 
-        Internacao internacao = internacaoRepository.findById(internacaoId)
+        internacaoRepository.findById(internacaoId)
                 .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Internação não encontrada"
+                        HttpStatus.NOT_FOUND, "Internação não encontrada"
                 ));
 
         return movimentacaoRepository
-                .findByInternacao_IdOrderByDataHoraAsc(internacao.getId())
+                .findByInternacaoIdOrderByDataHoraAsc(internacaoId)
                 .stream()
                 .map(m -> new MovimentacaoResponseDTO(
                         m.getSetorOrigem(),

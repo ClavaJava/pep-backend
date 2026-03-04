@@ -1,0 +1,42 @@
+<html>
+<head>
+<title>LeitoRepository.java</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cf8e6d;}
+.s1 { color: #bcbec4;}
+.s2 { color: #bcbec4;}
+.s3 { color: #7a7e85;}
+</style>
+</head>
+<body bgcolor="#191a1c">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+LeitoRepository.java</font>
+</center></td></tr></table>
+<pre><span class="s0">package </span><span class="s1">br</span><span class="s2">.</span><span class="s1">com</span><span class="s2">.</span><span class="s1">hospital</span><span class="s2">.</span><span class="s1">pep</span><span class="s2">.</span><span class="s1">repository</span><span class="s2">;</span>
+
+<span class="s0">import </span><span class="s1">br</span><span class="s2">.</span><span class="s1">com</span><span class="s2">.</span><span class="s1">hospital</span><span class="s2">.</span><span class="s1">pep</span><span class="s2">.</span><span class="s1">entity</span><span class="s2">.</span><span class="s1">Leito</span><span class="s2">;</span>
+<span class="s0">import </span><span class="s1">br</span><span class="s2">.</span><span class="s1">com</span><span class="s2">.</span><span class="s1">hospital</span><span class="s2">.</span><span class="s1">pep</span><span class="s2">.</span><span class="s1">enums</span><span class="s2">.</span><span class="s1">Setor</span><span class="s2">;</span>
+<span class="s0">import </span><span class="s1">org</span><span class="s2">.</span><span class="s1">springframework</span><span class="s2">.</span><span class="s1">data</span><span class="s2">.</span><span class="s1">jpa</span><span class="s2">.</span><span class="s1">repository</span><span class="s2">.</span><span class="s1">JpaRepository</span><span class="s2">;</span>
+
+<span class="s0">import </span><span class="s1">java</span><span class="s2">.</span><span class="s1">util</span><span class="s2">.</span><span class="s1">Optional</span><span class="s2">;</span>
+
+<span class="s0">public interface </span><span class="s1">LeitoRepository </span><span class="s0">extends </span><span class="s1">JpaRepository</span><span class="s2">&lt;</span><span class="s1">Leito</span><span class="s2">, </span><span class="s1">Long</span><span class="s2">&gt; {</span>
+
+    <span class="s3">// Buscar leito específico por setor e número</span>
+    <span class="s1">Optional</span><span class="s2">&lt;</span><span class="s1">Leito</span><span class="s2">&gt; </span><span class="s1">findBySetorAndNumero</span><span class="s2">(</span><span class="s1">Setor setor</span><span class="s2">, </span><span class="s1">Integer numero</span><span class="s2">);</span>
+
+    <span class="s3">// Buscar primeiro leito livre em um setor (usado na transferência)</span>
+    <span class="s1">Optional</span><span class="s2">&lt;</span><span class="s1">Leito</span><span class="s2">&gt; </span><span class="s1">findFirstBySetorAndOcupadoFalse</span><span class="s2">(</span><span class="s1">Setor setor</span><span class="s2">);</span>
+
+    <span class="s3">// Dashboard</span>
+    <span class="s0">long </span><span class="s1">countBySetor</span><span class="s2">(</span><span class="s1">Setor setor</span><span class="s2">);</span>
+    <span class="s0">long </span><span class="s1">countBySetorAndOcupadoTrue</span><span class="s2">(</span><span class="s1">Setor setor</span><span class="s2">);</span>
+
+
+    <span class="s0">long </span><span class="s1">countBySetorAndOcupadoFalse</span><span class="s2">(</span><span class="s1">Setor setor</span><span class="s2">);</span>
+<span class="s2">}</span></pre>
+</body>
+</html>

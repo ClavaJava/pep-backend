@@ -33,6 +33,18 @@ public class PacienteController {
         return pacienteService.listarTodos();
     }
 
+    // Busca por CPF (usado na tela Internar)
+    @GetMapping("/cpf/{cpf}")
+    public PacienteResponseDTO buscarPorCpf(@PathVariable String cpf) {
+        return pacienteService.buscarPorCpf(cpf);
+    }
+
+    // Busca por nome (usado na tela Pacientes)
+    @GetMapping("/buscar")
+    public List<PacienteResponseDTO> buscarPorNome(@RequestParam String nome) {
+        return pacienteService.buscarPorNome(nome);
+    }
+
     @PutMapping("/{id}")
     public PacienteResponseDTO atualizar(@PathVariable Long id,
                                          @RequestBody PacienteRequestDTO dto) {

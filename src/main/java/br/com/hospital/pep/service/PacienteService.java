@@ -25,15 +25,19 @@ public class PacienteService {
     // =========================
     public PacienteResponseDTO cadastrar(PacienteRequestDTO dto) {
 
+        // findByCpf substitui existsByCpf — evita query dupla
+        pacienteRepository.findByCpf(dto.getCpf())
+                .ifPresent(p -> { throw new ResponseStatusException(
+                        HttpStatus.CONFLICT, "CPF já cadastrado"
+                ); });
+
         Paciente paciente = new Paciente();
         paciente.setNome(dto.getNome());
-        paciente.setCpf(dto.getCpf());
+        paciente.setCpf(dto.getCpf().replaceAll("[^0-9]", ""));
         paciente.setSexo(dto.getSexo());
         paciente.setDataNascimento(dto.getDataNascimento());
 
-        Paciente salvo = pacienteRepository.save(paciente);
-
-        return converterParaDTO(salvo);
+        return converterParaDTO(pacienteRepository.save(paciente));
     }
 
     // =========================
@@ -41,13 +45,38 @@ public class PacienteService {
     // =========================
     public PacienteResponseDTO buscarPorId(Long id) {
 
-        Paciente paciente = pacienteRepository.findById(id)
+        return converterParaDTO(pacienteRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Paciente não encontrado"
-                ));
+                        HttpStatus.NOT_FOUND, "Paciente não encontrado"
+                )));
+    }
 
-        return converterParaDTO(paciente);
+    // =========================
+    // BUSCAR POR CPF
+    // =========================
+    public PacienteResponseDTO buscarPorCpf(String cpf) {
+
+        return converterParaDTO(pacienteRepository.findByCpf(cpf)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Paciente não encontrado"
+                )));
+    }
+
+    // =========================
+    // BUSCAR POR NOME
+    // =========================
+    public List<PacienteResponseDTO> buscarPorNome(String nome) {
+
+        List<Paciente> resultado = pacienteRepository
+                .findByNomeContainingIgnoreCase(nome);
+
+        if (resultado.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND, "Nenhum paciente encontrado com esse nome"
+            );
+        }
+
+        return resultado.stream().map(this::converterParaDTO).toList();
     }
 
     // =========================
@@ -68,18 +97,22 @@ public class PacienteService {
 
         Paciente paciente = pacienteRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Paciente não encontrado"
+                        HttpStatus.NOT_FOUND, "Paciente não encontrado"
                 ));
 
+        // Garante que o novo CPF não pertence a outro paciente
+        pacienteRepository.findByCpf(dto.getCpf())
+                .filter(p -> !p.getId().equals(id))
+                .ifPresent(p -> { throw new ResponseStatusException(
+                        HttpStatus.CONFLICT, "CPF já pertence a outro paciente"
+                ); });
+
         paciente.setNome(dto.getNome());
-        paciente.setCpf(dto.getCpf());
+        paciente.setCpf(dto.getCpf().replaceAll("[^0-9]", ""));
         paciente.setSexo(dto.getSexo());
         paciente.setDataNascimento(dto.getDataNascimento());
 
-        Paciente atualizado = pacienteRepository.save(paciente);
-
-        return converterParaDTO(atualizado);
+        return converterParaDTO(pacienteRepository.save(paciente));
     }
 
     // =========================
@@ -89,8 +122,7 @@ public class PacienteService {
 
         if (!pacienteRepository.existsById(id)) {
             throw new ResponseStatusException(
-                    HttpStatus.NOT_FOUND,
-                    "Paciente não encontrado"
+                    HttpStatus.NOT_FOUND, "Paciente não encontrado"
             );
         }
 

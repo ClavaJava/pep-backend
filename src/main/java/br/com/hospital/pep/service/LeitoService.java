@@ -4,10 +4,10 @@ import br.com.hospital.pep.dto.OcupacaoDTO;
 import br.com.hospital.pep.entity.Leito;
 import br.com.hospital.pep.enums.Setor;
 import br.com.hospital.pep.repository.LeitoRepository;
-import jakarta.annotation.PostConstruct;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+import java.util.List;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -21,41 +21,12 @@ public class LeitoService {
         this.leitoRepository = leitoRepository;
     }
 
-    // 🔥 AGORA ESTÁ NO LUGAR CERTO
-    @PostConstruct
-    public void inicializarLeitos() {
-
-        if (leitoRepository.count() > 0) return;
-
-        for (int i = 1; i <= 10; i++) {
-            Leito leito = new Leito();
-            leito.setSetor(Setor.UTI);
-            leito.setNumero(i);
-            leito.setOcupado(false);
-            leitoRepository.save(leito);
-        }
-
-        for (int i = 1; i <= 20; i++) {
-            Leito leito = new Leito();
-            leito.setSetor(Setor.ENFERMARIA);
-            leito.setNumero(i);
-            leito.setOcupado(false);
-            leitoRepository.save(leito);
-        }
-    }
-
+    // =========================
+    // CRIAR LEITO
+    // =========================
     public Leito criarLeito(Setor setor, int numero) {
 
-        int limite;
-
-        if (setor == Setor.UTI) {
-            limite = 10;
-        } else if (setor == Setor.ENFERMARIA) {
-            limite = 20;
-        } else {
-            limite = Integer.MAX_VALUE;
-        }
-
+        int limite = getLimiteSetor(setor);
         long total = leitoRepository.countBySetor(setor);
 
         if (total >= limite) {
@@ -65,6 +36,12 @@ public class LeitoService {
             );
         }
 
+        leitoRepository.findBySetorAndNumero(setor, numero)
+                .ifPresent(l -> { throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "Já existe um leito com número " + numero + " no setor " + setor
+                ); });
+
         Leito leito = new Leito();
         leito.setSetor(setor);
         leito.setNumero(numero);
@@ -72,19 +49,43 @@ public class LeitoService {
 
         return leitoRepository.save(leito);
     }
+    public List<Leito> listarDisponiveisPorSetor(Setor setor) {
+        return leitoRepository.findAllBySetorAndOcupadoFalseOrderByNumeroAsc(setor);
+    }
 
+    // =========================
+    // DASHBOARD
+    // =========================
     public Map<Setor, OcupacaoDTO> dashboard() {
 
         Map<Setor, OcupacaoDTO> resultado = new HashMap<>();
 
         for (Setor setor : Setor.values()) {
 
-            long total = leitoRepository.countBySetor(setor);
-            long ocupados = leitoRepository.countBySetorAndOcupadoTrue(setor);
+            long total = 0L;
+            long ocupados = 0L;
+
+            for (Object[] row : leitoRepository.countBySetorGroupByOcupado(setor)) {
+                boolean ocupado = (Boolean) row[0];
+                long count = (Long) row[1];
+                total += count;
+                if (ocupado) ocupados = count;
+            }
 
             resultado.put(setor, new OcupacaoDTO(total, ocupados));
         }
 
         return resultado;
+    }
+
+    // =========================
+    // HELPER — limite por setor
+    // =========================
+    private int getLimiteSetor(Setor setor) {
+        return switch (setor) {
+            case UTI -> 10;
+            case ENFERMARIA -> 20;
+            default -> Integer.MAX_VALUE;
+        };
     }
 }
