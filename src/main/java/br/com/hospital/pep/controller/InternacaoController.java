@@ -47,9 +47,10 @@ public class InternacaoController {
     @PutMapping("/{id}/transferir")
     public ResponseEntity<Void> transferir(
             @PathVariable Long id,
-            @RequestParam Setor novoSetor) {
+            @RequestParam Setor novoSetor,
+            @RequestParam Integer numeroLeito) {
 
-        internacaoService.transferir(id, novoSetor);
+        internacaoService.transferir(id, novoSetor, numeroLeito);
         return ResponseEntity.noContent().build();
     }
     // Histórico de internações por paciente (usado na tela Internados e Relatórios)

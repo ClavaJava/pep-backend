@@ -90,52 +90,58 @@ public class InternacaoService {
     // TRANSFERIR
     // =========================
     @Transactional
-    public void transferir(Long internacaoId, Setor novoSetor) {
+    public void transferir(Long internacaoId, Setor novoSetor, Integer numeroLeito) {
 
         Internacao internacao = internacaoRepository.findById(internacaoId)
                 .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Internação não encontrada"
+                        HttpStatus.NOT_FOUND, "Internacao nao encontrada"
                 ));
 
         if (internacao.getStatus() != StatusInternacao.INTERNADO) {
             throw new ResponseStatusException(
-                    HttpStatus.CONFLICT, "Só é possível transferir internações ativas"
+                    HttpStatus.CONFLICT, "So e possivel transferir internacoes ativas"
             );
         }
 
         Leito leitoAtual = internacao.getLeito();
         Setor setorOrigem = leitoAtual.getSetor();
 
-        if (setorOrigem == novoSetor) {
+        if (leitoAtual.getNumero().equals(numeroLeito) && setorOrigem == novoSetor) {
             throw new ResponseStatusException(
-                    HttpStatus.CONFLICT, "Paciente já está neste setor"
+                    HttpStatus.CONFLICT, "Paciente ja esta neste leito"
+            );
+        }
+
+        Leito novoLeitoObj = leitoRepository
+                .findBySetorAndNumero(novoSetor, numeroLeito)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Leito nao encontrado neste setor"
+                ));
+
+        if (novoLeitoObj.isOcupado()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "Leito ja esta ocupado"
             );
         }
 
         leitoAtual.setOcupado(false);
         leitoRepository.save(leitoAtual);
 
-        // Usa ordenação por número — determinístico e auditável
-        Leito novoLeito = leitoRepository
-                .findFirstBySetorAndOcupadoFalseOrderByNumeroAsc(novoSetor)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.CONFLICT, "Não há leitos disponíveis no setor destino"
-                ));
+        novoLeitoObj.setOcupado(true);
+        leitoRepository.save(novoLeitoObj);
 
-        novoLeito.setOcupado(true);
-        leitoRepository.save(novoLeito);
-
-        internacao.setLeito(novoLeito);
+        internacao.setLeito(novoLeitoObj);
 
         MovimentacaoInternacao movimentacao = new MovimentacaoInternacao();
         movimentacao.setInternacao(internacao);
         movimentacao.setSetorOrigem(setorOrigem);
         movimentacao.setSetorDestino(novoSetor);
+        movimentacao.setLeitoOrigem(leitoAtual);
+        movimentacao.setLeitoDestino(novoLeitoObj);
         movimentacao.setDataHora(LocalDateTime.now());
 
         movimentacaoRepository.save(movimentacao);
     }
-
     // =========================
     // DAR ALTA
     // =========================
@@ -205,6 +211,8 @@ public class InternacaoService {
                 .map(m -> new MovimentacaoResponseDTO(
                         m.getSetorOrigem(),
                         m.getSetorDestino(),
+                        m.getLeitoOrigem() != null ? m.getLeitoOrigem().getNumero() : null,
+                        m.getLeitoDestino() != null ? m.getLeitoDestino().getNumero() : null,
                         m.getDataHora()
                 ))
                 .toList();
@@ -214,12 +222,12 @@ public class InternacaoService {
     // CONVERSOR
     // =========================
     private InternacaoResponseDTO converterParaDTO(Internacao internacao) {
-
         return new InternacaoResponseDTO(
                 internacao.getId(),
                 internacao.getDataEntrada(),
                 internacao.getDataAlta(),
                 internacao.getLeito().getSetor(),
+                internacao.getLeito().getNumero(),
                 internacao.getStatus(),
                 internacao.getPaciente().getId(),
                 internacao.getPaciente().getNome()

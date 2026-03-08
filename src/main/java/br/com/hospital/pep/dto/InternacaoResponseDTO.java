@@ -11,6 +11,7 @@ public class InternacaoResponseDTO {
     private LocalDate dataEntrada;
     private LocalDate dataAlta;
     private Setor setor;
+    private Integer numeroLeito;
     private StatusInternacao status;
     private Long pacienteId;
     private String nomePaciente;
@@ -19,6 +20,7 @@ public class InternacaoResponseDTO {
                                  LocalDate dataEntrada,
                                  LocalDate dataAlta,
                                  Setor setor,
+                                 Integer numeroLeito,
                                  StatusInternacao status,
                                  Long pacienteId,
                                  String nomePaciente) {
@@ -26,6 +28,7 @@ public class InternacaoResponseDTO {
         this.dataEntrada = dataEntrada;
         this.dataAlta = dataAlta;
         this.setor = setor;
+        this.numeroLeito = numeroLeito;
         this.status = status;
         this.pacienteId = pacienteId;
         this.nomePaciente = nomePaciente;
@@ -35,6 +38,7 @@ public class InternacaoResponseDTO {
     public LocalDate getDataEntrada() { return dataEntrada; }
     public LocalDate getDataAlta() { return dataAlta; }
     public Setor getSetor() { return setor; }
+    public Integer getNumeroLeito() { return numeroLeito; }
     public StatusInternacao getStatus() { return status; }
     public Long getPacienteId() { return pacienteId; }
     public String getNomePaciente() { return nomePaciente; }

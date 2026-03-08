@@ -2,8 +2,6 @@ package br.com.hospital.pep.entity;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;
-import java.util.List;
-import jakarta.persistence.OneToMany;
 
 @Entity
 @Table(name = "pacientes")
@@ -14,59 +12,55 @@ public class Paciente {
     private Long id;
 
     private String nome;
-
-    @Column(unique = true, nullable = false)
     private String cpf;
-
+    private String sexo;
     private LocalDate dataNascimento;
 
-    private String sexo;
+    // ─── Endereço (integração ViaCEP) ───────────────────────
+    private String cep;
+    private String logradouro;
+    private String numero;
+    private String complemento;
+    private String bairro;
+    private String cidade;
+    private String uf;
+    // ────────────────────────────────────────────────────────
 
-    // Construtor vazio (obrigatório pro JPA)
-    public Paciente() {
-    }
+    public Paciente() {}
 
-    // Getters e Setters
-    public Long getId() {
-        return id;
-    }
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
+    public String getNome() { return nome; }
+    public void setNome(String nome) { this.nome = nome; }
 
-    public String getNome() {
-        return nome;
-    }
+    public String getCpf() { return cpf; }
+    public void setCpf(String cpf) { this.cpf = cpf; }
 
-    public void setNome(String nome) {
-        this.nome = nome;
-    }
+    public String getSexo() { return sexo; }
+    public void setSexo(String sexo) { this.sexo = sexo; }
 
-    public String getCpf() {
-        return cpf;
-    }
+    public LocalDate getDataNascimento() { return dataNascimento; }
+    public void setDataNascimento(LocalDate dataNascimento) { this.dataNascimento = dataNascimento; }
 
-    public void setCpf(String cpf) {
-        this.cpf = cpf;
-    }
+    public String getCep() { return cep; }
+    public void setCep(String cep) { this.cep = cep; }
 
-    public LocalDate getDataNascimento() {
-        return dataNascimento;
-    }
+    public String getLogradouro() { return logradouro; }
+    public void setLogradouro(String logradouro) { this.logradouro = logradouro; }
 
-    public void setDataNascimento(LocalDate dataNascimento) {
-        this.dataNascimento = dataNascimento;
-    }
+    public String getNumero() { return numero; }
+    public void setNumero(String numero) { this.numero = numero; }
 
-    public String getSexo() {
-        return sexo;
-    }
+    public String getComplemento() { return complemento; }
+    public void setComplemento(String complemento) { this.complemento = complemento; }
 
-    public void setSexo(String sexo) {
-        this.sexo = sexo;
-    }
-    @OneToMany(mappedBy = "paciente")
-    private List<Internacao> internacoes;
+    public String getBairro() { return bairro; }
+    public void setBairro(String bairro) { this.bairro = bairro; }
 
+    public String getCidade() { return cidade; }
+    public void setCidade(String cidade) { this.cidade = cidade; }
+
+    public String getUf() { return uf; }
+    public void setUf(String uf) { this.uf = uf; }
 }

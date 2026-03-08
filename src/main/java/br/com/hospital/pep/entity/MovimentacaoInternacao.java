@@ -25,5 +25,13 @@ public class MovimentacaoInternacao {
     @Enumerated(EnumType.STRING)
     private Setor setorDestino;
 
+    @ManyToOne
+    @JoinColumn(name = "leito_origem_id")
+    private Leito leitoOrigem;
+
+    @ManyToOne
+    @JoinColumn(name = "leito_destino_id")
+    private Leito leitoDestino;
+
     private LocalDateTime dataHora;
 }
